@@ -226,8 +226,9 @@ section "7. HITFM Python 依赖"
 # 用系统 python3 + pip 装（HITFM 自己只依赖 openai 和 pyyaml）
 # 不用 uv 是因为 HITFM 本身没有 pyproject.toml；保持现有 requirements.txt 风格
 if [[ -f "$HITFM_DIR/requirements.txt" ]]; then
-    info "安装 HITFM Python 依赖（pip3）..."
-    python3 -m pip install --user --upgrade -r "$HITFM_DIR/requirements.txt"
+    info "创建虚拟环境并安装 HITFM Python 依赖（uv）..."
+    uv venv "$HITFM_DIR/.venv"
+    uv pip install --python "$HITFM_DIR/.venv/bin/python" -r "$HITFM_DIR/requirements.txt"
     ok "HITFM Python 依赖安装完成"
 else
     warn "找不到 requirements.txt，跳过"
