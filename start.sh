@@ -169,7 +169,7 @@ else
         fi
         # 每 10s 报一次进度，让用户知道没卡死
         if (( i % 10 == 0 )); then
-            info "  仍在加载模型... 已等 ${i}s（日志: tail -f $INDEXTTS_LOG）"
+            info "  仍在加载模型... 已等 ${i}s (日志: tail -f $INDEXTTS_LOG )"
         fi
         if [[ $i -eq "$INDEXTTS_STARTUP_TIMEOUT" ]]; then
             err "IndexTTS server 启动超时（${INDEXTTS_STARTUP_TIMEOUT}s），查日志: tail -50 $INDEXTTS_LOG"
@@ -207,7 +207,7 @@ cd "$HITFM_DIR"
 # 系统自带的 python3 没有这些依赖，直接跑会 ModuleNotFoundError。
 PYTHON_BIN="$HITFM_DIR/.venv/bin/python"
 if [[ ! -x "$PYTHON_BIN" ]]; then
-    warn "找不到 .venv（$PYTHON_BIN），回退到系统 python3——如果缺依赖请重跑 ./install.sh"
+    warn "找不到 .venv ( $PYTHON_BIN )，回退到系统 python3——如果缺依赖请重跑 ./install.sh"
     PYTHON_BIN="python3"
 fi
 "$PYTHON_BIN" demo_llm_runtime.py "${EXTRA_PY_ARGS[@]+"${EXTRA_PY_ARGS[@]}"}" || true
