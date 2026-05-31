@@ -1,0 +1,60 @@
+name: Test install.sh
+
+# 触发条件：install.sh / requirements.txt 改了才跑，避免每次 push 都浪费时间
+on:
+  push:
+    branches: [main]
+    paths:
+      - install.sh
+      - requirements.txt
+      - external/api_server.py
+      - .github/workflows/test-install.yml
+  pull_request:
+    paths:
+      - install.sh
+      - requirements.txt
+  workflow_dispatch:   # 允许在 Actions 页面手动触发
+
+jobs:
+  install:
+    name: Fresh install (no model downloads)
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # pip 缓存——requirements.txt 不变就不重新下载
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      # 正式运行 install.sh
+      # --skip-ollama-pull  跳过 LLM 模型拉取（~5 GB）
+      # --skip-indextts     跳过 IndexTTS clone + 权重下载（~7 GB）
+      - name: Run install.sh
+        run: bash install.sh --skip-ollama-pull --skip-indextts
+
+      # install.sh 把 uv 装到 ~/.local/bin，只在脚本内部 export PATH 了
+      # 这里补上，让后续步骤能直接用 uv 命令
+      - name: Add uv to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      # ---- 验证各工具是否到位 ----
+      - name: Verify CLI tools
+        run: |
+          git --version
+          git-lfs --version
+          ffmpeg -version 2>&1 | head -1
+          uv --version
+          ollama --version
+
+      - name: Verify ollama service is responding
+        run: curl -sf http://localhost:11434/api/version | python3 -m json.tool
+
+      - name: Verify Python deps importable
+        run: python3 -c "import openai, yaml; print('Python deps OK')"

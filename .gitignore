@@ -1,0 +1,27 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 运行时产物
+.indextts_server.log
+.indextts_server.pid
+hitfm_script_*.wav
+hitfm_script_*.mp3
+
+# 安装时下载的第三方组件，不进仓库
+external/index-tts/
+
+# 用户的私人主持人配置（默认排除所有，hosts/default 是仓库自带的例外，需要 git add -f）
+# 这样可以避免不小心把 Haze 等真人录音 push 到公开仓库
+hosts/*/
+!hosts/default/

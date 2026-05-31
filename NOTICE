@@ -1,0 +1,48 @@
+HITFM Local
+Copyright 2025 HITFM Local contributors
+
+This product includes software developed by third parties:
+
+────────────────────────────────────────────────────────────────────────
+Third-party components NOT bundled with this repository
+────────────────────────────────────────────────────────────────────────
+
+The install.sh script in this repository downloads the following
+third-party software at install time. They are NOT part of this
+repository, are NOT redistributed by us, and remain under their
+original licenses:
+
+1. IndexTTS-2 (https://github.com/index-tts/index-tts)
+   - Source code: Apache License 2.0
+   - Model weights ("checkpoints"): see INDEX_MODEL_LICENSE in their
+     repository. The weights are FREE for non-commercial use.
+     Commercial use requires prior written authorization from Bilibili
+     (contact: indexspeech@bilibili.com).
+   
+   ⚠ If you intend to use HITFM Local commercially, you must obtain
+   a commercial license for the IndexTTS-2 model weights directly from
+   Bilibili. The Apache 2.0 license of THIS repository does NOT grant
+   you the right to use IndexTTS-2 model weights commercially.
+
+2. Ollama (https://github.com/ollama/ollama)
+   - MIT License. Permissive, including commercial use.
+
+3. Qwen2.5 series models (https://huggingface.co/Qwen)
+   - Default model: Qwen2.5-7B-Instruct, Apache License 2.0.
+   - You can swap to other models via --model flag during install or
+     by editing config.yaml. Verify each model's license separately.
+
+4. Homebrew packages (git, git-lfs, ffmpeg)
+   - Each governed by its respective upstream license. See
+     `brew info <package>` for details.
+
+5. uv (https://github.com/astral-sh/uv)
+   - MIT License or Apache 2.0 (dual-licensed).
+
+────────────────────────────────────────────────────────────────────────
+Audio assets in the audio/ directory
+────────────────────────────────────────────────────────────────────────
+
+The pre-recorded audio files in audio/station_id/, audio/hours/,
+audio/bed_music/ are provided as examples. Users are encouraged to
+replace them with their own recordings or licensed audio.

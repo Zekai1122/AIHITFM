@@ -1,0 +1,84 @@
+# HITFM Local 配置文件
+
+# 主持人 —— 指向 hosts/<host_id>/ 文件夹。
+# 该文件夹下至少有 profile.json + voice_ref.{wav,mp3}。
+# 可选：emotion_ref.{wav,mp3}、emotion.json（预留给未来情感版本）
+host: default
+
+llm:
+  provider: ollama
+
+  ollama:
+    base_url: "http://localhost:11434/v1"
+    api_key: "ollama"
+    model: "qwen2.5:7b-instruct"
+
+time:
+  # time_zone_mode 决定播报使用哪个时区：
+  #   "auto"     - 用系统本地时区（macOS 上能自动识别为 "Asia/Shanghai" / "Australia/Sydney" 等）
+  #   "beijing"  - 强制北京时间（无论你在哪个时区都按北京时间播报）
+  #   "<IANA名>" - 直接指定，例如 "Asia/Shanghai"、"Australia/Sydney"、"America/Los_Angeles"
+  time_zone_mode: auto
+  
+  # 可选：覆盖该时区的口语化名称（不填会用预置映射，比如 Asia/Shanghai → "北京时间"）
+  # spoken_name_override: "上海时间"
+
+# 电台 slogan——口播台词的收尾必须用其中一句（程序随机选一条传给 LLM，
+# 严禁翻译成中文、严禁两条混用）
+slogans:
+  - "Only on HITFM"
+  - "Never stop the beat"
+
+tts:
+  # provider: say / indextts
+  provider: indextts
+  
+  say:
+    voice: "Tingting"  # macOS 自带的中文女声；男声用 "Sinji"
+    rate: 180  # 语速，正常 170-200
+  
+  indextts:
+    # IndexTTS-2 HTTP API 服务地址
+    # 启动方式：
+    #   cd ~/Documents/Coding/index-tts
+    #   cp <HITFM项目>/external/indextts_api_server.py ./api_server.py
+    #   uv run python api_server.py
+    api_url: "http://127.0.0.1:9881"
+    
+    # 参考音色音频（绝对路径，IndexTTS 服务端要能访问）。
+    # 默认会自动用 hosts/<host_id>/voice_ref.{wav,mp3}——通常不需要在这里指定。
+    # 只有想临时用别的音色覆盖时才取消下面这行的注释：
+    # ref_audio_path: "/abs/path/to/some/voice.wav"
+    
+    # ---- 以下是 emotion 控制参数，默认全不指定，让 IndexTTS 从文本自动推断 ----
+    # 情感参考音频（另一段表达特定情绪的音频）。不用就留空
+    emo_audio_prompt: null
+    # 情感强度 0.0-1.0
+    emo_alpha: 1.0
+    # 用文本描述情感（比如"热情的电台主持人"）。需要同时 use_emo_text: true
+    emo_text: null
+    use_emo_text: false
+    use_random: false
+    verbose: false
+    # 单段最多多少 token，长文本会被切成多段，IndexTTS 默认 120
+    max_text_tokens_per_segment: 120
+    # IndexTTS-2 在 Mac CPU/MPS 上较慢，给够超时
+    timeout: 300
+
+dj:
+  persona_file: "./prompts/dj_persona.md"
+  style_memory_file: "./memory/style_rules.json"
+  # 在歌曲剩余多少秒时触发生成下一首的文案
+  preparation_lead_seconds: 20
+  # 文案目标时长（秒），用来约束 LLM 输出长度
+  target_script_seconds: 20
+
+metadata:
+  # 是否查询外部 API 补充元数据（MusicBrainz 免费，不需要 key）
+  enable_musicbrainz: true
+  # Last.fm 需要 API key，没有就留空
+  lastfm_api_key: ""
+
+demo:
+  # demo 模式下播放几首歌后退出
+  max_songs: 5
