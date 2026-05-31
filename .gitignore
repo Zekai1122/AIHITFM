@@ -24,4 +24,4 @@ external/index-tts/
 # 用户的私人主持人配置（默认排除所有，hosts/default 是仓库自带的例外，需要 git add -f）
 # 这样可以避免不小心把 Haze 等真人录音 push 到公开仓库
 hosts/*/
-!hosts/default/
+audio/*
