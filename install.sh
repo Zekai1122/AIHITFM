@@ -162,7 +162,7 @@ else
     if ollama list 2>/dev/null | awk 'NR>1 {print $1}' | grep -Fxq "$LLM_MODEL"; then
         ok "LLM 模型 $LLM_MODEL 已存在"
     else
-        info "拉取 LLM 模型 $LLM_MODEL（首次较慢，几 GB 大小）..."
+        info "拉取 LLM 模型 ${LLM_MODEL}（首次较慢，几 GB 大小）..."
         ollama pull "$LLM_MODEL"
         ok "LLM 模型拉取完成"
     fi
@@ -176,7 +176,7 @@ if [[ "$SKIP_INDEXTTS" == "true" ]]; then
 else
     # 6.1 clone 仓库
     if [[ -d "$INDEXTTS_DIR/.git" ]]; then
-        ok "IndexTTS 仓库已 clone（$INDEXTTS_DIR）"
+        ok "IndexTTS 仓库已 clone（${INDEXTTS_DIR}）"
     else
         info "clone IndexTTS 仓库到 external/index-tts ..."
         mkdir -p "$HITFM_DIR/external"
@@ -187,15 +187,20 @@ else
     # 6.2 同步依赖
     info "用 uv 同步 IndexTTS 依赖（首次较慢）..."
     (cd "$INDEXTTS_DIR" && uv sync --all-extras)
+    # api_server.py 额外依赖 flask，它不在 index-tts 自身的 pyproject 里，需要单独装进 venv
+    info "安装 api_server.py 需要的 flask ..."
+    (cd "$INDEXTTS_DIR" && uv pip install flask)
     ok "IndexTTS 依赖安装完成"
     
     # 6.3 下载模型权重
     INDEXTTS_CKPT_DIR="$INDEXTTS_DIR/checkpoints"
-    # 简单存在性判断：config.yaml 在 checkpoints 下就视为下载过了
-    if [[ -f "$INDEXTTS_CKPT_DIR/config.yaml" ]]; then
-        ok "IndexTTS-2 模型权重已存在（$INDEXTTS_CKPT_DIR）"
+    # 存在性判断：必须用真正的大权重文件（gpt.pth）来判断，
+    # 不能用 config.yaml / pinyin.vocab——它们是 clone index-tts 仓库时就自带的，
+    # 一直存在会导致误判"已下载"，真正的几个 GB 权重永远不会被下载。
+    if [[ -f "$INDEXTTS_CKPT_DIR/gpt.pth" ]]; then
+        ok "IndexTTS-2 模型权重已存在（${INDEXTTS_CKPT_DIR}）"
     else
-        info "下载 IndexTTS-2 模型权重到 $INDEXTTS_CKPT_DIR（约 5-7 GB）..."
+        info "下载 IndexTTS-2 模型权重到 ${INDEXTTS_CKPT_DIR}（约 5-7 GB）..."
         if [[ "$INDEXTTS_MIRROR" == "modelscope" ]]; then
             # 用 ModelScope，适合国内
             uv tool install "modelscope" --quiet 2>/dev/null || uv tool install "modelscope"
@@ -227,7 +232,8 @@ section "7. HITFM Python 依赖"
 # 不用 uv 是因为 HITFM 本身没有 pyproject.toml；保持现有 requirements.txt 风格
 if [[ -f "$HITFM_DIR/requirements.txt" ]]; then
     info "创建虚拟环境并安装 HITFM Python 依赖（uv）..."
-    uv venv "$HITFM_DIR/.venv"
+    # --clear：若 .venv 已存在则直接重建，不弹交互式确认（否则重跑 install.sh 会卡住等输入）
+    uv venv --clear "$HITFM_DIR/.venv"
     uv pip install --python "$HITFM_DIR/.venv/bin/python" -r "$HITFM_DIR/requirements.txt"
     ok "HITFM Python 依赖安装完成"
 else

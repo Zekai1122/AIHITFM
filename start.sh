@@ -15,6 +15,11 @@
 
 set -euo pipefail
 
+# uv 默认装在 ~/.local/bin。start.sh 通过 nohup 在后台子 shell 里调 uv 起 IndexTTS，
+# 那个环境不一定继承交互式 shell 的 PATH（典型报错：nohup: uv: No such file or directory）。
+# 这里显式把 uv 的安装目录加进 PATH，保证后台子进程也能找到 uv。
+export PATH="$HOME/.local/bin:$PATH"
+
 HITFM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INDEXTTS_DIR="$HITFM_DIR/external/index-tts"
 INDEXTTS_LOG="$HITFM_DIR/.indextts_server.log"
@@ -130,7 +135,7 @@ ok "当前 host: $HOST_ID (参考音色: $(basename "$VOICE_REF"))"
 info "3. 启动 IndexTTS API server ..."
 
 if [[ ! -d "$INDEXTTS_DIR" ]]; then
-    err "找不到 IndexTTS 目录 $INDEXTTS_DIR。请先跑 ./install.sh"
+    err "找不到 IndexTTS 目录 ${INDEXTTS_DIR}。请先跑 ./install.sh"
     exit 1
 fi
 
@@ -152,15 +157,22 @@ else
         echo $! > "$INDEXTTS_PID_FILE"
     )
     
-    # 等 server 起来
-    info "等 IndexTTS server 进入 ready（模型加载需要 ~30s）..."
-    for i in $(seq 1 120); do
+    # 等 server 起来。
+    # IndexTTS-2 首次冷启动要把几个 GB 权重读进来 + 初始化 GPT/s2mel/BigVGAN/Qwen 情感模型，
+    # 在 Mac（CPU/MPS）上可能要 3-10 分钟，所以超时给到 600s，并每 10s 报一次进度。
+    INDEXTTS_STARTUP_TIMEOUT=600
+    info "等 IndexTTS server 进入 ready（首次冷启动较慢，最多等 ${INDEXTTS_STARTUP_TIMEOUT}s）..."
+    for i in $(seq 1 "$INDEXTTS_STARTUP_TIMEOUT"); do
         if curl -sf http://127.0.0.1:9881/health >/dev/null 2>&1; then
             ok "IndexTTS API server 已就绪"
             break
         fi
-        if [[ $i -eq 120 ]]; then
-            err "IndexTTS server 启动超时，查日志: tail -50 $INDEXTTS_LOG"
+        # 每 10s 报一次进度，让用户知道没卡死
+        if (( i % 10 == 0 )); then
+            info "  仍在加载模型... 已等 ${i}s（日志: tail -f $INDEXTTS_LOG）"
+        fi
+        if [[ $i -eq "$INDEXTTS_STARTUP_TIMEOUT" ]]; then
+            err "IndexTTS server 启动超时（${INDEXTTS_STARTUP_TIMEOUT}s），查日志: tail -50 $INDEXTTS_LOG"
             exit 1
         fi
         sleep 1
@@ -190,6 +202,14 @@ trap cleanup_indextts EXIT INT TERM
 info "5. 启动电台主循环 ..."
 echo
 cd "$HITFM_DIR"
-python3 demo_llm_runtime.py "${EXTRA_PY_ARGS[@]+"${EXTRA_PY_ARGS[@]}"}" || true
+
+# 用 install.sh 创建的 .venv 里的 python（依赖 openai / pyyaml 都装在那里）。
+# 系统自带的 python3 没有这些依赖，直接跑会 ModuleNotFoundError。
+PYTHON_BIN="$HITFM_DIR/.venv/bin/python"
+if [[ ! -x "$PYTHON_BIN" ]]; then
+    warn "找不到 .venv（$PYTHON_BIN），回退到系统 python3——如果缺依赖请重跑 ./install.sh"
+    PYTHON_BIN="python3"
+fi
+"$PYTHON_BIN" demo_llm_runtime.py "${EXTRA_PY_ARGS[@]+"${EXTRA_PY_ARGS[@]}"}" || true
 
 # trap 会在退出时自动清理 IndexTTS
