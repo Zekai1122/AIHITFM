@@ -125,28 +125,43 @@ class BedMusicPlayer:
             )
             self._all_procs.append(self._loop_proc)
     
+    @staticmethod
+    def _kill_group_hard(proc: subprocess.Popen) -> None:
+        """
+        无条件 SIGKILL 一个用 start_new_session=True 起的进程组。
+
+        关键：进程组 id == 组长 pid。即使组长（bash while-true）已经退出，
+        只要组里还有子进程（正在播的 afplay）活着，killpg(proc.pid, ...) 依然
+        能把它们杀掉。所以这里**不能**用 os.getpgid(proc.pid)——组长一死它就抛
+        ProcessLookupError，导致组里逃逸的 afplay 孤儿永远杀不掉（口播结束后垫音
+        还在响、Ctrl+C 也停不掉，都是这个原因）。
+
+        afplay 在 macOS 上对 SIGTERM 反应不稳定，直接上 SIGKILL 最可靠。
+        """
+        if proc is None:
+            return
+        # pgid 用组长自己的 pid（start_new_session 保证 pid == pgid），
+        # 不依赖组长是否还活着。
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except (ProcessLookupError, OSError):
+            # 整组已经没了
+            pass
+        except Exception as e:
+            print(f"[bed_music] 杀进程组时出错（忽略）: {e}")
+        try:
+            proc.wait(timeout=0.5)
+        except Exception:
+            pass
+
     def _kill_loop(self) -> None:
-        """杀掉循环进程组。"""
+        """杀掉循环进程组（含正在播的 afplay）。"""
         with self._lock:
             proc = self._loop_proc
             self._loop_proc = None
-        if proc is None or proc.poll() is not None:
+        if proc is None:
             return
-        try:
-            pgid = os.getpgid(proc.pid)
-            os.killpg(pgid, signal.SIGTERM)
-            try:
-                proc.wait(timeout=0.3)
-            except subprocess.TimeoutExpired:
-                os.killpg(pgid, signal.SIGKILL)
-                try:
-                    proc.wait(timeout=0.3)
-                except subprocess.TimeoutExpired:
-                    pass
-        except (ProcessLookupError, OSError):
-            pass
-        except Exception as e:
-            print(f"[bed_music] 停止循环时出错（忽略）: {e}")
+        self._kill_group_hard(proc)
     
     def fade_out(self, duration: float = 1.5) -> None:
         """
@@ -205,19 +220,10 @@ class BedMusicPlayer:
             self._loop_proc = None
         
         for proc in procs:
-            if proc.poll() is not None:
-                continue
-            try:
-                pgid = os.getpgid(proc.pid)
-                os.killpg(pgid, signal.SIGKILL)
-                try:
-                    proc.wait(timeout=0.3)
-                except subprocess.TimeoutExpired:
-                    pass
-            except (ProcessLookupError, OSError):
-                _kill_process_hard(proc, "bed_music proc")
-            except Exception:
-                _kill_process_hard(proc, "bed_music proc")
+            # 注意：不能用 `if proc.poll() is not None: continue` 来跳过——
+            # 循环进程组的组长（bash）可能已经退出（poll() 非 None），但它名下
+            # 正在播的 afplay 子进程还活着。必须无条件对整个进程组 SIGKILL。
+            self._kill_group_hard(proc)
 
 
 @contextlib.contextmanager
